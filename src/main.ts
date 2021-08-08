@@ -752,7 +752,6 @@ class Boschindego extends utils.Adapter {
 				this.refreshState(false);
 			}
 			if (botIsMoving == false) {
-				refreshMode = 2;
 				const d = new Date();
 				const n = d.getHours();
 				if (n >= 22 || n < 7) {
@@ -809,7 +808,7 @@ class Boschindego extends utils.Adapter {
 	private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
 		if (state) {
 			// The state was changed
-			this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+			this.log.debug(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
 
 			if (id.indexOf('mow') >= 0) {
 				this.mow();
@@ -835,7 +834,7 @@ class Boschindego extends utils.Adapter {
 			}
 		} else {
 			// The state was deleted
-			this.log.info(`state ${id} deleted`);
+			this.log.debug(`state ${id} deleted`);
 		}
 	}
 
@@ -892,62 +891,93 @@ class Boschindego extends utils.Adapter {
 		});
 	}
 
+	private handleAPIError(origin: string, err: any){
+		requestRunning = false;
+		if (typeof err.response !== 'undefined' && err.response.status == 401) {
+			this.log.error('[' + origin + '] request error - unauthorized');
+			this.log.debug('[' + origin + '] request error' + JSON.stringify(err));
+			connected = false;
+			// this.setStateAsync('info.connection', false, true); will be handelt in connect() function on connection failure
+			this.connect(this.config.username, this.config.password, true);
+		} else if ((typeof err.response !== 'undefined' && err.response.status == 504) || (typeof err.code !== 'undefined' && err.code == 'ECONNRESET')) {
+			// expected behavior by longpoll requests
+			this.log.debug('[' + origin + '] planned longpoll timeout');
+		} else {
+			this.log.error('[' + origin + '] request error'  + JSON.stringify(err));
+			connected = false;
+			// this.setStateAsync('info.connection', false, true); will be handelt in connect() function on connection failure
+			this.connect(this.config.username, this.config.password, true);
+		}
+	}
+
 	private mow(): void{
-		this.log.info('mow command sent')
-		axios({
-			method: 'PUT',
-			url: `${URL}alms/${alm_sn}/state`,
-			headers: {
-				'x-im-context-id': `${contextId}`
-			},
-			data: { state: 'mow' }
-		}).then(res => {
-			this.log.debug('mow res: ' + res.data);
-		}).catch(err => {
-			this.log.error('error in mow request: ' + err);
-		});
-		this.clearAlerts();
+		if(currentStateCode < 300 || currentStateCode > 60000 || currentStateCode == 517) {
+			this.log.info('mow command sent')
+			axios({
+				method: 'PUT',
+				url: `${URL}alms/${alm_sn}/state`,
+				headers: {
+					'x-im-context-id': `${contextId}`
+				},
+				data: { state: 'mow' }
+			}).then(res => {
+				this.log.debug('mow res: ' + res.data);
+			}).catch(err => {
+				this.handleAPIError("mow", err);
+			});
+			this.clearAlerts();
+		} else {
+			this.log.warn('bot is not in the correct state to mow')
+		}
 		this.refreshState(false);
 	}
 
 	private goHome(): void{
-		this.log.info('return to dock command sent')
-		axios({
-			method: 'PUT',
-			url: `${URL}alms/${alm_sn}/state`,
-			headers: {
-				'x-im-context-id': `${contextId}`
-			},
-			data: { state: 'returnToDock' }
-		}).then(res => {
-			this.log.debug('returnToDock res: ' + res.data);
-		}).catch(err => {
-			this.log.error('error in returnToDock request: ' + err);
-		});
-		this.clearAlerts();
+		if(currentStateCode >= 500 && currentStateCode < 600) {
+			this.log.info('return to dock command sent')
+			axios({
+				method: 'PUT',
+				url: `${URL}alms/${alm_sn}/state`,
+				headers: {
+					'x-im-context-id': `${contextId}`
+				},
+				data: { state: 'returnToDock' }
+			}).then(res => {
+				this.log.debug('returnToDock res: ' + res.data);
+			}).catch(err => {
+				this.handleAPIError("goHome", err);
+			});
+			this.clearAlerts();
+		} else {
+			this.log.warn('bot is not in the correct state to go home')
+		}
 		this.refreshState(false);
 	}
 
 	private pause(): void{
-		this.log.info('pause command sent')
-		axios({
-			method: 'PUT',
-			url: `${URL}alms/${alm_sn}/state`,
-			headers: {
-				'x-im-context-id': `${contextId}`
-			},
-			data: { state: 'pause' }
-		}).then(res => {
-			this.log.debug('pause res: ' + res.data);
-		}).catch(err => {
-			this.log.error('error in pause request: ' + err);
-		});
-		this.clearAlerts();
+		if(currentStateCode >= 500 && currentStateCode < 600) {
+			this.log.info('pause command sent')
+			axios({
+				method: 'PUT',
+				url: `${URL}alms/${alm_sn}/state`,
+				headers: {
+					'x-im-context-id': `${contextId}`
+				},
+				data: { state: 'pause' }
+			}).then(res => {
+				this.log.debug('pause res: ' + res.data);
+			}).catch(err => {
+				this.handleAPIError("pause", err);
+			});
+			this.clearAlerts();
+		} else {
+			this.log.warn('bot is not in the correct state to pause')
+		}
 		this.refreshState(false);
 	}
 
 	private refreshState(force: boolean): void{
-		if (connected && (botIsMoving || force || (currentStateCode == 257 || currentStateCode == 260))) { // if bot moves or is charging, get data. Prevents weaking up the bot
+		if (connected && (botIsMoving || force || (currentStateCode == 257 || currentStateCode == 260))) { // if bot moves or is charging, get data. Prevents waking up the bot
 			this.getOperatingData();
 		}
 		if(connected && (requestRunning == false || force)) {
@@ -1037,22 +1067,7 @@ class Boschindego extends utils.Adapter {
 					this.createMapWithIndego(res.data.svg_xPos, res.data.svg_yPos);
 				}
 			}).catch(err => {
-				requestRunning = false;
-				if (typeof err.response !== 'undefined' && err.response.status == 401) {
-					this.log.error('connection error'  + JSON.stringify(err));
-					connected = false;
-					// this.setStateAsync('info.connection', false, true); will be handelt in connect() function on connection failure
-					this.connect(this.config.username, this.config.password, true);
-				} else if ((typeof err.response !== 'undefined' && err.response.status == 504) || (typeof err.code !== 'undefined' && err.code == 'ECONNRESET')) {
-					// expected behavior by longpoll requests
-					this.log.debug('planned longpoll timeout');
-				} else {
-					this.log.error('connection error'  + JSON.stringify(err));
-					connected = false;
-					// this.setStateAsync('info.connection', false, true); will be handelt in connect() function on connection failure
-					this.connect(this.config.username, this.config.password, true);
-				}
-
+				this.handleAPIError("refreshState", err);
 			});
 		} else if (requestRunning == false) {
 			this.connect(this.config.username, this.config.password, true);
@@ -1078,7 +1093,7 @@ class Boschindego extends utils.Adapter {
 			await this.setStateAsync('machine.bare_tool_number', { val: res.data.bareToolnumber, ack: true });
 			await this.setStateAsync('machine.alm_firmware_version', { val: res.data.alm_firmware_version, ack: true });
 		}).catch(err => {
-			this.log.error('error in machine request: ' + err);
+			this.handleAPIError("getMachine", err);
 		});
 	}
 	private getOperatingData(): void{
@@ -1110,7 +1125,7 @@ class Boschindego extends utils.Adapter {
 			await this.setStateAsync('operationData.garden.last_mow', {val: res.data.garden.last_mow, ack: true });
 			await this.setStateAsync('operationData.garden.map_cell_size', {val: res.data.garden.map_cell_size, ack: true });
 		}).catch(err => {
-			this.log.error('error in operatingData request: ' + err);
+			this.handleAPIError("getOperatingData", err);
 		});
 	}
 
@@ -1130,12 +1145,12 @@ class Boschindego extends utils.Adapter {
 					}).then(res2 => {
 						this.log.debug('clear alerts: ' + alert.alert_id + ' ' + res2);
 					}).catch(err2 => {
-						this.log.error('error in clear alerts request: ' + err2);
+						this.handleAPIError("clearAlerts", err2);
 					});
 				})
 			}
 		}).catch(err => {
-			this.log.error('error in clear alerts request: ' + err);
+			this.handleAPIError("clearAlerts", err);
 			return Promise.reject(err);
 		});
 	}
@@ -1166,7 +1181,7 @@ class Boschindego extends utils.Adapter {
 			}
 			return res;
 		}).catch(err => {
-			this.log.error('error in alerts request: ' + err);
+			this.handleAPIError("getAlerts", err);
 			return Promise.reject(err);
 		});
 	}
@@ -1183,7 +1198,7 @@ class Boschindego extends utils.Adapter {
 		}).then(async res => {
 			await this.setStateAsync('map.mapSVG', { val: res.data, ack: true });
 		}).catch(err => {
-			this.log.error('error in map request: ' + err);
+			this.handleAPIError("getMap", err);
 		});
 		return;
 	}
