@@ -295,8 +295,6 @@ class Boschindego extends utils.Adapter {
             common: {
                 name: 'mapSVG',
                 type: 'string',
-                min: 0,
-                max: 100,
                 role: 'value',
                 read: true,
                 write: false,
@@ -308,8 +306,6 @@ class Boschindego extends utils.Adapter {
             common: {
                 name: 'mapSVGwithIndego',
                 type: 'string',
-                min: 0,
-                max: 100,
                 role: 'value',
                 read: true,
                 write: false,
