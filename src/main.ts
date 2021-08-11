@@ -911,7 +911,7 @@ class Boschindego extends utils.Adapter {
 	}
 
 	private mow(): void{
-		if(currentStateCode < 300 || currentStateCode > 60000 || currentStateCode == 517) {
+		if((currentStateCode < 300 || currentStateCode > 60000 || currentStateCode == 517) && currentStateCode != 257 && currentStateCode != 260 && currentStateCode != 0) {
 			this.log.info('mow command sent')
 			axios({
 				method: 'PUT',
