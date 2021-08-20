@@ -837,7 +837,7 @@ class Boschindego extends utils.Adapter {
                 data: { device: '', os_type: 'Android', os_version: '4.0', dvc_manuf: 'unknown', dvc_type: 'unknown' }
             }).then(res => {
                 this.log.info('connect ok');
-                this.log.debug('connect data: ' + res.data);
+                this.log.debug('connect data: ' + JSON.stringify(res.data));
                 contextId = res.data.contextId;
                 // userId = res.data.userId;
                 alm_sn = res.data.alm_sn;
@@ -874,6 +874,9 @@ class Boschindego extends utils.Adapter {
     }
     handleAPIError(origin, err) {
         requestRunning = false;
+        if (typeof err.response !== 'undefined') {
+            this.log.error('[' + origin + '] Response:' + err.response.data);
+        }
         if (typeof err.response !== 'undefined' && err.response.status == 401) {
             this.log.error('[' + origin + '] request error - unauthorized');
             this.log.debug('[' + origin + '] request error' + JSON.stringify(err));
@@ -887,9 +890,9 @@ class Boschindego extends utils.Adapter {
         }
         else {
             this.log.error('[' + origin + '] request error' + JSON.stringify(err));
-            connected = false;
+            //connected = false;
             // this.setStateAsync('info.connection', false, true); will be handelt in connect() function on connection failure
-            this.connect(this.config.username, this.config.password, true);
+            //this.connect(this.config.username, this.config.password, true);
         }
     }
     mow() {
@@ -972,7 +975,7 @@ class Boschindego extends utils.Adapter {
             let forceUrl = '';
             if (refreshMode == 1 || force == true) {
                 this.log.debug('state - force - refreshMode: ' + refreshMode);
-                forceUrl = '?cached=false&force=true';
+                forceUrl = '?cached=false';
             }
             else {
                 this.log.debug('refresh state - longPoll - refreshMode: ' + refreshMode);
@@ -1163,7 +1166,7 @@ class Boschindego extends utils.Adapter {
         this.log.debug('get map');
         axios_1.default({
             method: 'GET',
-            url: `${URL}alms/${alm_sn}/map?cached=false&force=true`,
+            url: `${URL}alms/${alm_sn}/map?cached=false`,
             headers: {
                 'x-im-context-id': `${contextId}`
             }
