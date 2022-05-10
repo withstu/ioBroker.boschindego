@@ -846,7 +846,7 @@ class Boschindego extends utils.Adapter {
 					'Authorization': `Basic ${base64}`,
 					'Content-Type': 'application/json'
 				},
-				data: {device:'', os_type:'Android', os_version:'4.0', dvc_manuf:'unknown', dvc_type:'unknown'}
+				data: {accept_tc_id: '202012', device:'', os_type:'Android', os_version:'4.0', dvc_manuf:'unknown', dvc_type:'unknown'}
 			}).then(res => {
 				this.log.info('connect ok');
 				this.log.debug('connect data: ' + JSON.stringify(res.data));
@@ -889,9 +889,6 @@ class Boschindego extends utils.Adapter {
 
 	private handleAPIError(origin: string, err: any){
 		requestRunning = false;
-		if( typeof err.response !== 'undefined' ){
-			this.log.error('[' + origin + '] Response:' + err.response.data);
-		}
 		if (typeof err.response !== 'undefined' && err.response.status == 401) {
 			this.log.error('[' + origin + '] request error - unauthorized');
 			this.log.debug('[' + origin + '] request error' + JSON.stringify(err));
@@ -989,7 +986,7 @@ class Boschindego extends utils.Adapter {
 			let forceUrl = '';
 			if (refreshMode == 1 || force == true) {
 				this.log.debug('state - force - refreshMode: ' + refreshMode);
-				forceUrl = '?cached=false';
+				forceUrl = '?cached=false&force=true';
 			} else {
 				this.log.debug('refresh state - longPoll - refreshMode: ' + refreshMode);
 				timeout = 3650000;
